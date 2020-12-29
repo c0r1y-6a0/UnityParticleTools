@@ -1,0 +1,52 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+#define SIZEX 32
+#define SIZEY 32
+#define GROUPSIZE SIZEX*SIZEY
+
+groupshared int acc[GROUPSIZE];
+groupshared int acc2[GROUPSIZE];
+groupshared int acc3[GROUPSIZE];
+
+int GroupXCount;
+
+Texture2D<float4> OverdrawRT;
+Texture2D<float4> SceneRT;
+RWStructuredBuffer<int> DrawTime;
+RWStructuredBuffer<int> DrawPixelCount;
+RWStructuredBuffer<int> RealDrawPixelCount;
+
+[numthreads(SIZEX,SIZEY,1)]
+void CSMain (uint3 groupID: SV_GroupID, uint3 ID: SV_DispatchThreadID, uint localID: SV_GroupIndex)
+{
+    float4 v = SceneRT[ID.xy];
+    float p = v.r + v.g + v.b;
+    acc[localID] = (int)(OverdrawRT[ID.xy].g * 256);
+    acc2[localID] = acc[localID] == 0 ? 0 : 1;
+    acc3[localID] = p < 0.01 ? 0 : 1;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint pi = GROUPSIZE >> 1; pi > 0; pi = pi >> 1)
+    {
+        if (localID < pi)
+        {
+            acc[localID] = acc[localID] + acc[localID + pi];
+            acc2[localID] = acc2[localID] + acc2[localID + pi];
+            acc3[localID] = acc3[localID] + acc3[localID + pi];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (localID != 0)
+        return;
+
+    uint index = groupID.y * GroupXCount + groupID.x;
+    DrawTime[index] = acc[0];
+    DrawPixelCount[index] = acc2[0];
+    RealDrawPixelCount[index] = acc3[0];
+}
