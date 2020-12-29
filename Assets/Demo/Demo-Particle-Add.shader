@@ -173,7 +173,6 @@ Shader "Demo/ParticleAdd"
 					#else
 						fixed staticSwitch228 = temp_output_217_0;
 					#endif
-						//�͹��ذ�
 						staticSwitch228 = _MaskOnGround ? (i.worldPos.y < -0.1 ? 0 : staticSwitch228) : staticSwitch228;
 					fixed4 appendResult220 = fixed4(((tex2DNode204).rgb * (i.ase_color).rgb * (staticSwitch228)) , 0);
 
